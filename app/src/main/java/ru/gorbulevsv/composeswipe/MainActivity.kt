@@ -1,129 +1,63 @@
 package ru.gorbulevsv.composeswipe
 
 import android.annotation.SuppressLint
-import android.graphics.Bitmap
 import android.os.Bundle
-import android.os.CountDownTimer
-import android.os.Message
-import android.util.Log
-import android.view.KeyEvent
 import android.view.View
-import android.webkit.RenderProcessGoneDetail
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.AnchoredDraggableState
-import androidx.compose.foundation.gestures.DraggableAnchors
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.anchoredDraggable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
-import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.twotone.ThumbUp
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import ru.gorbulevsv.composeswipe.ui.theme.ComposeSwipeTheme
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import me.saket.swipe.SwipeAction
-import me.saket.swipe.SwipeableActionsBox
+import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Date
-import java.util.concurrent.TimeUnit
-import kotlin.concurrent.timer
-import kotlin.math.abs
-import kotlin.math.roundToInt
-import kotlin.text.format
 
 class MainActivity : ComponentActivity() {
     val countPage = Int.MAX_VALUE
     val centralPage = countPage / 2 + 10
 
-    //    var isNewStyle by mutableStateOf(true)
-//    var isNewStyleText = derivedStateOf { if (isNewStyle) "новый ст." else "старый ст." }
-    //var date by mutableStateOf(LocalDateTime.now())
-//    var subTitle = derivedStateOf {
-//        val formatter = DateTimeFormatter.ofPattern("E., d MMMM yyyy г.")
-//        if (isNewStyle) {
-//            date.format(formatter)
-//        } else {
-//            date.minusDays(13).format(formatter)
-//        }
-//    }
+    var isDateDialogShow = mutableStateOf(false)
+    var rrr = mutableStateOf("")
 
     @SuppressLint("SetJavaScriptEnabled", "UnrememberedMutableState")
     @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -188,13 +122,20 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 MyButton("Назад", onClick = {
                                     coroutineScope.launch {
                                         pagerState.scrollToPage(pagerState.currentPage - 1)
                                     }
                                 })
+                                Text(
+                                    text = subTitle.value + rrr.value,
+                                    modifier = Modifier.clickable(true, onClick = {
+                                        isDateDialogShow.value = true
+                                    })
+                                )
                                 MyButton("Вперёд", onClick = {
                                     coroutineScope.launch {
                                         pagerState.scrollToPage(pagerState.currentPage + 1)
@@ -211,6 +152,16 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                             .fillMaxSize()
                     )
+                    if (isDateDialogShow.value) {
+                        DatePickerModal(
+                            onDateSelected = { v ->
+                                if (v != null) {
+                                    rrr.value = getDateFromLong(v)
+                                }
+                            },
+                            onDismiss = { isDateDialogShow.value = false }
+                        )
+                    }
                 }
             }
         }
@@ -300,6 +251,34 @@ fun MyButton(text: String = "", onClick: () -> Unit = {}) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerModal(
+    onDateSelected: (Long?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val datePickerState = rememberDatePickerState()
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onDateSelected(datePickerState.selectedDateMillis)
+                onDismiss()
+            }) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    ) {
+        DatePicker(state = datePickerState)
+    }
+}
+
+
 fun getDate(step: Int): String {
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     var date = when {
@@ -316,4 +295,10 @@ fun getOldDay(step: Int): String {
         else -> LocalDateTime.now().plusDays(step.toLong()).minusDays(13)
     }
     return date.format(formatter)
+}
+
+fun getDateFromLong(time: Long): String {
+    val date = Date(time)
+    val format = SimpleDateFormat("d MMMM yyyy г.")
+    return format.format(date)
 }
