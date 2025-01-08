@@ -107,36 +107,53 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.timer
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.text.format
 
 class MainActivity : ComponentActivity() {
     val countPage = Int.MAX_VALUE
     val centralPage = countPage / 2 + 10
-    val currentDate by mutableStateOf(getDate(0))
-    val pageUrl by derivedStateOf { "http://www.patriarchia.ru/bu/${currentDate}/print.html" }
 
-    var isNewStyle by mutableStateOf(true)
-    var isNewStyleText = derivedStateOf { if (isNewStyle) "новый ст." else "старый ст." }
-    var date by mutableStateOf(LocalDateTime.now())
-    var subTitle = derivedStateOf {
-        val formatter = DateTimeFormatter.ofPattern("E., d MMMM yyyy г.")
-        if (isNewStyle) {
-            date.format(formatter)
-        } else {
-            date.minusDays(13).format(formatter)
-        }
-    }
+    //    var isNewStyle by mutableStateOf(true)
+//    var isNewStyleText = derivedStateOf { if (isNewStyle) "новый ст." else "старый ст." }
+    //var date by mutableStateOf(LocalDateTime.now())
+//    var subTitle = derivedStateOf {
+//        val formatter = DateTimeFormatter.ofPattern("E., d MMMM yyyy г.")
+//        if (isNewStyle) {
+//            date.format(formatter)
+//        } else {
+//            date.minusDays(13).format(formatter)
+//        }
+//    }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "UnrememberedMutableState")
     @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ComposeSwipeTheme {
-                val pagerState = rememberPagerState(
+                var pagerState = rememberPagerState(
                     pageCount = { countPage }, initialPage = centralPage
                 )
                 val coroutineScope = rememberCoroutineScope()
+
+                var isNewStyle = mutableStateOf(true)
+                var isNewStyleText =
+                    derivedStateOf { if (isNewStyle.value) "новый ст." else "старый ст." }
+                var subTitle = derivedStateOf {
+                    val formatterDayOfWeek = DateTimeFormatter.ofPattern("E., ")
+                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy г.")
+                    var step = pagerState.currentPage - centralPage
+                    var date = when {
+                        step == 0 -> LocalDateTime.now()
+                        else -> LocalDateTime.now().plusDays(step.toLong())
+                    }
+                    if (isNewStyle.value) {
+                        date.format(formatterDayOfWeek) + date.format(formatter)
+                    } else {
+                        date.format(formatterDayOfWeek) + date.minusDays(13).format(formatter)
+                    }
+                }
                 Scaffold(
                     topBar = {
                         TopAppBar(
@@ -147,14 +164,17 @@ class MainActivity : ComponentActivity() {
                             ),
                             title = {
                                 Column(verticalArrangement = Arrangement.spacedBy(-3.dp)) {
-                                    Text(text = "Богослужебные указания", fontSize = 20.sp)
+                                    Text(
+                                        text = "Богослужебные указания",
+                                        fontSize = 20.sp
+                                    )
                                     Text(text = subTitle.value, fontSize = 16.sp)
                                 }
                             },
                             actions = {
                                 MyButton(
                                     text = isNewStyleText.value,
-                                    onClick = { isNewStyle = !isNewStyle }
+                                    onClick = { isNewStyle.value = !isNewStyle.value }
                                 )
                             }
                         )
@@ -198,7 +218,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MyPager(pagerState: PagerState, centralPage: Int, modifier: Modifier = Modifier) {
+fun MyPager(
+    pagerState: PagerState,
+    centralPage: Int,
+    modifier: Modifier = Modifier
+) {
     HorizontalPager(
         state = pagerState,
         modifier = modifier,
