@@ -48,16 +48,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.Period
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 
 class MainActivity : ComponentActivity() {
     val countPage = Int.MAX_VALUE
     val centralPage = countPage / 2 + 10
-
     var isDateDialogShow = mutableStateOf(false)
-    var rrr = mutableStateOf("")
 
     @SuppressLint("SetJavaScriptEnabled", "UnrememberedMutableState")
     @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -74,19 +76,38 @@ class MainActivity : ComponentActivity() {
                 var isNewStyle = mutableStateOf(true)
                 var isNewStyleText =
                     derivedStateOf { if (isNewStyle.value) "новый ст." else "старый ст." }
-                var subTitle = derivedStateOf {
-                    val formatterDayOfWeek = DateTimeFormatter.ofPattern("E., ")
-                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy г.")
-                    var step = pagerState.currentPage - centralPage
+
+                var step = derivedStateOf { pagerState.currentPage - centralPage }
+                var dateCurrent = mutableStateOf(LocalDateTime.now())
+                var dateForUrl = derivedStateOf {
+                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
                     var date = when {
-                        step == 0 -> LocalDateTime.now()
-                        else -> LocalDateTime.now().plusDays(step.toLong())
+                        step.value == 0 -> dateCurrent.value
+                        else -> dateCurrent.value.plusDays(step.value.toLong())
+                    }
+                    date.format(formatter)
+                }
+                var dateForSubTitle = derivedStateOf {
+                    val formatterDayOfWeek = DateTimeFormatter.ofPattern("E., ")
+                    val formatter =
+                        DateTimeFormatter.ofPattern("d MMMM yyyy г. " + if (isNewStyle.value) "(н.ст.)" else "(ст.ст.)")
+                    var date = when {
+                        step.value == 0 -> dateCurrent.value
+                        else -> dateCurrent.value.plusDays(step.value.toLong())
                     }
                     if (isNewStyle.value) {
                         date.format(formatterDayOfWeek) + date.format(formatter)
                     } else {
                         date.format(formatterDayOfWeek) + date.minusDays(13).format(formatter)
                     }
+                }
+                var dateForBottomPanel = derivedStateOf {
+                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy г." + "(н.ст.)")
+                    var date = when {
+                        step.value == 0 -> dateCurrent.value
+                        else -> dateCurrent.value.plusDays(step.value.toLong())
+                    }
+                    date.format(formatter)
                 }
                 Scaffold(
                     topBar = {
@@ -102,7 +123,7 @@ class MainActivity : ComponentActivity() {
                                         text = "Богослужебные указания",
                                         fontSize = 20.sp
                                     )
-                                    Text(text = subTitle.value, fontSize = 16.sp)
+                                    Text(text = dateForSubTitle.value, fontSize = 16.sp)
                                 }
                             },
                             actions = {
@@ -131,7 +152,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 })
                                 Text(
-                                    text = subTitle.value + rrr.value,
+                                    text = dateForBottomPanel.value,
                                     modifier = Modifier.clickable(true, onClick = {
                                         isDateDialogShow.value = true
                                     })
@@ -146,6 +167,7 @@ class MainActivity : ComponentActivity() {
                     }, modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
                     MyPager(
+                        date = dateForUrl.value,
                         pagerState = pagerState,
                         centralPage = centralPage,
                         modifier = Modifier
@@ -156,7 +178,13 @@ class MainActivity : ComponentActivity() {
                         DatePickerModal(
                             onDateSelected = { v ->
                                 if (v != null) {
-                                    rrr.value = getDateFromLong(v)
+                                    coroutineScope.launch {
+                                        dateCurrent.value = LocalDateTime.parse(
+                                            getDateFromLong(v.toLong()),
+                                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                                        )
+                                        pagerState.scrollToPage(centralPage)
+                                    }
                                 }
                             },
                             onDismiss = { isDateDialogShow.value = false }
@@ -170,6 +198,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MyPager(
+    date: String,
     pagerState: PagerState,
     centralPage: Int,
     modifier: Modifier = Modifier
@@ -181,8 +210,8 @@ fun MyPager(
         beyondViewportPageCount = 2
     ) { page ->
         Web(
-            url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage)}/print.html",
-            oldDay = getOldDay(page - centralPage)
+            url = "http://www.patriarchia.ru/bu/${date}/print.html"
+            //url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage)}/print.html"
         )
     }
 }
@@ -191,7 +220,7 @@ fun MyPager(
 @OptIn(DelicateCoroutinesApi::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun Web(url: String, oldDay: String = "", modifier: Modifier = Modifier) {
+fun Web(url: String, modifier: Modifier = Modifier) {
     var countWebPageLoad = remember { 0 }
     AndroidView(
         modifier = modifier
@@ -299,6 +328,6 @@ fun getOldDay(step: Int): String {
 
 fun getDateFromLong(time: Long): String {
     val date = Date(time)
-    val format = SimpleDateFormat("d MMMM yyyy г.")
+    val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     return format.format(date)
 }
