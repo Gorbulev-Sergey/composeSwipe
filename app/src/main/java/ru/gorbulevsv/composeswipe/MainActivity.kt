@@ -61,6 +61,10 @@ class MainActivity : ComponentActivity() {
     val centralPage = countPage / 2 + 10
     var isDateDialogShow = mutableStateOf(false)
 
+    var isNewStyle = mutableStateOf(true)
+    var isNewStyleText =
+        derivedStateOf { if (isNewStyle.value) "новый ст." else "старый ст." }
+
     @SuppressLint("SetJavaScriptEnabled", "UnrememberedMutableState")
     @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,11 +77,8 @@ class MainActivity : ComponentActivity() {
                 )
                 val coroutineScope = rememberCoroutineScope()
 
-                var isNewStyle = mutableStateOf(true)
-                var isNewStyleText =
-                    derivedStateOf { if (isNewStyle.value) "новый ст." else "старый ст." }
-
                 var step = derivedStateOf { pagerState.currentPage - centralPage }
+
                 var dateCurrent = mutableStateOf(LocalDateTime.now())
                 var dateForUrl = derivedStateOf {
                     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -109,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     }
                     date.format(formatter)
                 }
+
                 Scaffold(
                     topBar = {
                         TopAppBar(
@@ -167,7 +169,7 @@ class MainActivity : ComponentActivity() {
                     }, modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
                     MyPager(
-                        date = dateForUrl.value,
+                        date = dateCurrent.value,
                         pagerState = pagerState,
                         centralPage = centralPage,
                         modifier = Modifier
@@ -198,7 +200,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MyPager(
-    date: String,
+    date: LocalDateTime,
     pagerState: PagerState,
     centralPage: Int,
     modifier: Modifier = Modifier
@@ -210,8 +212,8 @@ fun MyPager(
         beyondViewportPageCount = 2
     ) { page ->
         Web(
-            url = "http://www.patriarchia.ru/bu/${date}/print.html"
-            //url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage)}/print.html"
+            //url = "http://www.patriarchia.ru/bu/${date}/print.html"
+            url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage, date)}/print.html"
         )
     }
 }
@@ -255,7 +257,7 @@ fun Web(url: String, modifier: Modifier = Modifier) {
                         visibility = View.VISIBLE
                     }
                 }
-                loadUrl(url)
+                //loadUrl(url)
             }
         },
         update = {
@@ -308,11 +310,11 @@ fun DatePickerModal(
 }
 
 
-fun getDate(step: Int): String {
+fun getDate(step: Int, startDate: LocalDateTime): String {
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     var date = when {
-        step == 0 -> LocalDateTime.now()
-        else -> LocalDateTime.now().plusDays(step.toLong())
+        step == 0 -> startDate
+        else -> startDate.plusDays(step.toLong())
     }
     return date.format(formatter)
 }
