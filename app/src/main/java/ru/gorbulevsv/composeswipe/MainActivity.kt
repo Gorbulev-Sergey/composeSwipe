@@ -34,9 +34,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.gorbulevsv.composeswipe.ui.theme.ComposeSwipeTheme
@@ -48,11 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.Period
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 
@@ -76,7 +72,7 @@ class MainActivity : ComponentActivity() {
                     pageCount = { countPage }, initialPage = centralPage
                 )
                 val coroutineScope = rememberCoroutineScope()
-
+                var isFirstLoad = mutableStateOf(true)
                 var step = derivedStateOf { pagerState.currentPage - centralPage }
 
                 var dateCurrent = mutableStateOf(LocalDateTime.now())
@@ -172,6 +168,7 @@ class MainActivity : ComponentActivity() {
                         date = dateCurrent.value,
                         pagerState = pagerState,
                         centralPage = centralPage,
+                        isFirstLoad = isFirstLoad,
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
@@ -181,6 +178,7 @@ class MainActivity : ComponentActivity() {
                             onDateSelected = { v ->
                                 if (v != null) {
                                     coroutineScope.launch {
+                                        isFirstLoad.value = true
                                         dateCurrent.value = LocalDateTime.parse(
                                             getDateFromLong(v.toLong()),
                                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -203,6 +201,7 @@ fun MyPager(
     date: LocalDateTime,
     pagerState: PagerState,
     centralPage: Int,
+    isFirstLoad: MutableState<Boolean>,
     modifier: Modifier = Modifier
 ) {
     HorizontalPager(
@@ -212,8 +211,8 @@ fun MyPager(
         beyondViewportPageCount = 2
     ) { page ->
         Web(
-            //url = "http://www.patriarchia.ru/bu/${date}/print.html"
-            url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage, date)}/print.html"
+            url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage, date)}/print.html",
+            isFirstLoad = isFirstLoad
         )
     }
 }
@@ -222,8 +221,7 @@ fun MyPager(
 @OptIn(DelicateCoroutinesApi::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun Web(url: String, modifier: Modifier = Modifier) {
-    var countWebPageLoad = remember { 0 }
+fun Web(url: String, isFirstLoad: MutableState<Boolean>, modifier: Modifier = Modifier) {
     AndroidView(
         modifier = modifier
             .fillMaxSize(),
@@ -250,11 +248,11 @@ fun Web(url: String, modifier: Modifier = Modifier) {
                             "document.querySelectorAll('a').forEach(e=>e.style.color='blue'); document.querySelectorAll('div').forEach(e=>e.style.fontSize='1.16rem'); document.querySelector('.main').style.lineHeight='1.61rem'; document.querySelectorAll('p').forEach(e=>e.style.textIndent='0'); document.querySelector('body').style.margin='0rem'; document.querySelector('body').style.userSelect='none'; document.querySelector('.main').style.overflowWrap='break-word';",
                             null
                         )
-                        if (countWebPageLoad == 0) {
-                            Thread.sleep(100)
-                            countWebPageLoad += 1
-                        }
+                        if (isFirstLoad.value == true) {
+                            Thread.sleep(200)
+                            isFirstLoad.value = false
                         visibility = View.VISIBLE
+                        }
                     }
                 }
                 //loadUrl(url)
