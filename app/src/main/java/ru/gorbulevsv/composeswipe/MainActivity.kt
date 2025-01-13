@@ -37,16 +37,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import ru.gorbulevsv.composeswipe.ui.theme.ComposeSwipeTheme
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
+import ru.gorbulevsv.composeswipe.ui.theme.ComposeSwipeTheme
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
     val countPage = Int.MAX_VALUE
     val centralPage = countPage / 2 + 10
     var isDateDialogShow = mutableStateOf(false)
+    var isFirstLoad = mutableStateOf(true)
 
     var isNewStyle = mutableStateOf(true)
     var isNewStyleText =
@@ -68,26 +71,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ComposeSwipeTheme {
+                val coroutineScope = rememberCoroutineScope()
                 var pagerState = rememberPagerState(
                     pageCount = { countPage }, initialPage = centralPage
                 )
-                val coroutineScope = rememberCoroutineScope()
-                var isFirstLoad = mutableStateOf(true)
-                var step = derivedStateOf { pagerState.currentPage - centralPage }
 
+                var step = derivedStateOf { pagerState.currentPage - centralPage }
                 var dateCurrent = mutableStateOf(LocalDateTime.now())
-                var dateForUrl = derivedStateOf {
-                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-                    var date = when {
-                        step.value == 0 -> dateCurrent.value
-                        else -> dateCurrent.value.plusDays(step.value.toLong())
-                    }
-                    date.format(formatter)
-                }
                 var dateForSubTitle = derivedStateOf {
                     val formatterDayOfWeek = DateTimeFormatter.ofPattern("E., ")
                     val formatter =
-                        DateTimeFormatter.ofPattern("d MMMM yyyy г. " + if (isNewStyle.value) "(н.ст.)" else "(ст.ст.)")
+                        DateTimeFormatter.ofPattern("d MMMM yyyy " + if (isNewStyle.value) "(н.ст.)" else "(ст.ст.)")
                     var date = when {
                         step.value == 0 -> dateCurrent.value
                         else -> dateCurrent.value.plusDays(step.value.toLong())
@@ -99,7 +93,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 var dateForBottomPanel = derivedStateOf {
-                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy г." + "(н.ст.)")
+                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy " + "(н.ст.)")
                     var date = when {
                         step.value == 0 -> dateCurrent.value
                         else -> dateCurrent.value.plusDays(step.value.toLong())
@@ -116,12 +110,18 @@ class MainActivity : ComponentActivity() {
                                 titleContentColor = colorResource(R.color.white)
                             ),
                             title = {
-                                Column(verticalArrangement = Arrangement.spacedBy(-3.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy((-3).dp)) {
                                     Text(
                                         text = "Богослужебные указания",
                                         fontSize = 20.sp
                                     )
-                                    Text(text = dateForSubTitle.value, fontSize = 16.sp)
+                                    Text(
+                                        text = dateForSubTitle.value,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.clickable(true, onClick = {
+                                            isDateDialogShow.value = true
+                                        })
+                                    )
                                 }
                             },
                             actions = {
@@ -151,9 +151,11 @@ class MainActivity : ComponentActivity() {
                                 })
                                 Text(
                                     text = dateForBottomPanel.value,
+                                    textAlign = TextAlign.Center,
                                     modifier = Modifier.clickable(true, onClick = {
                                         isDateDialogShow.value = true
-                                    })
+                                    }
+                                    )
                                 )
                                 MyButton("Вперёд", onClick = {
                                     coroutineScope.launch {
@@ -161,6 +163,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 })
                             }
+
                         }
                     }, modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
@@ -173,12 +176,13 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                             .fillMaxSize()
                     )
+
                     if (isDateDialogShow.value) {
+                        isFirstLoad.value = true
                         DatePickerModal(
                             onDateSelected = { v ->
                                 if (v != null) {
                                     coroutineScope.launch {
-                                        isFirstLoad.value = true
                                         dateCurrent.value = LocalDateTime.parse(
                                             getDateFromLong(v.toLong()),
                                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -187,7 +191,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            onDismiss = { isDateDialogShow.value = false }
+                            onDismiss = { isDateDialogShow.value = false },
+                            currentDate = dateCurrent.value
                         )
                     }
                 }
@@ -208,7 +213,7 @@ fun MyPager(
         state = pagerState,
         modifier = modifier,
         userScrollEnabled = false,
-        beyondViewportPageCount = 2
+        beyondViewportPageCount = 4
     ) { page ->
         Web(
             url = "http://www.patriarchia.ru/bu/${getDate(page - centralPage, date)}/print.html",
@@ -218,13 +223,14 @@ fun MyPager(
 }
 
 
-@OptIn(DelicateCoroutinesApi::class)
+@OptIn(DelicateCoroutinesApi::class, ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun Web(url: String, isFirstLoad: MutableState<Boolean>, modifier: Modifier = Modifier) {
+    var isFirst = remember { true }
+    isFirst = isFirstLoad.value
     AndroidView(
-        modifier = modifier
-            .fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true
@@ -248,14 +254,16 @@ fun Web(url: String, isFirstLoad: MutableState<Boolean>, modifier: Modifier = Mo
                             "document.querySelectorAll('a').forEach(e=>e.style.color='blue'); document.querySelectorAll('div').forEach(e=>e.style.fontSize='1.16rem'); document.querySelector('.main').style.lineHeight='1.61rem'; document.querySelectorAll('p').forEach(e=>e.style.textIndent='0'); document.querySelector('body').style.margin='0rem'; document.querySelector('body').style.userSelect='none'; document.querySelector('.main').style.overflowWrap='break-word';",
                             null
                         )
-                        if (isFirstLoad.value == true) {
-                            Thread.sleep(200)
+                        if (isFirst == true || isFirstLoad.value == true) {
+                            Thread.sleep(100)
+                            isFirst = false
                             isFirstLoad.value = false
-                        visibility = View.VISIBLE
                         }
+                        visibility = View.VISIBLE
                     }
+
                 }
-                //loadUrl(url)
+                loadUrl(url)
             }
         },
         update = {
@@ -284,7 +292,8 @@ fun MyButton(text: String = "", onClick: () -> Unit = {}) {
 @Composable
 fun DatePickerModal(
     onDateSelected: (Long?) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    currentDate: LocalDateTime
 ) {
     val datePickerState = rememberDatePickerState()
     DatePickerDialog(
@@ -326,6 +335,7 @@ fun getOldDay(step: Int): String {
     return date.format(formatter)
 }
 
+@SuppressLint("SimpleDateFormat")
 fun getDateFromLong(time: Long): String {
     val date = Date(time)
     val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
